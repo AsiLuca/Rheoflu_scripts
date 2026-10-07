@@ -1,0 +1,14 @@
+# Mac OS system files
+.DS_Store
+._*
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Jupyter Notebook files
+.ipynb_checkpoints/
+*_local.ipynb
+
+# Output / Results
+results/
