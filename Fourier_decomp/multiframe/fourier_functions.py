@@ -363,10 +363,14 @@ def analyze_frame_fourier_complete(img, init_contour, sigma=2, alpha=1.5, beta=1
         max_deformation_um = abs(a0_um - np.max(r_contour_sorted))
         print(f"Max deformation: {max_deformation_um:.4f} µm")    
 
-        b_ax = (np.max(r_fit_sorted)-a0) + (np.partition(r_fit_sorted, -2)[-2]-a0)  # somma dei due massimi
-        l_ax = (np.min(r_fit_sorted)-a0) + (np.partition(r_fit_sorted, 1)[1]-a0)  # somma dei due minimi
+        #b_ax = (np.max(r_fit_sorted)-a0) + (np.partition(r_fit_sorted, -2)[-2]-a0)  # somma dei due massimi
+        #l_ax = (np.min(r_fit_sorted)-a0) + (np.partition(r_fit_sorted, 1)[1]-a0)  # somma dei due minimi
+        #aspect_ratio = b_ax / l_ax
+        #print(f"Aspect ratio R: {aspect_ratio:.4f}")=
 
-        strain = (b_ax - l_ax) / (b_ax + l_ax)
+
+        strain = c2 / a0  # Deformazione relativa (ellittica)
+        #strain = (b_ax - l_ax) / (b_ax + l_ax)
         print(f"Strain: {strain:.4f}")    
 
 
@@ -377,7 +381,7 @@ def analyze_frame_fourier_complete(img, init_contour, sigma=2, alpha=1.5, beta=1
             save_path = Path(save_path).resolve()
             fig.savefig(str(save_path), dpi=300, bbox_inches="tight")
         
-        plt.show()
+        #plt.show()
         plt.close(fig)
 
     return a0, a1, b1, a2, b2, a3, b3, a4, b4, c1, c2, c3, c4, strain, contour
