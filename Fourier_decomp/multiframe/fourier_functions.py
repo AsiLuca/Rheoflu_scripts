@@ -211,7 +211,7 @@ def track_droplet_template(img, template, threshold=0.60, plot_result=False, sav
             
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
             ax1.imshow(img_plot, cmap='gray')
-            ax1.set_title(f"Oggetto trovato con affidabilità: {max_val:.2f}", fontsize=14)
+            ax1.set_title(f"Tracking confidence score: {max_val:.2f}", fontsize=14)
             ax1.axis('off')
             
             heatmap = ax2.imshow(result, cmap='viridis', vmin=0, vmax=1)
@@ -230,7 +230,7 @@ def track_droplet_template(img, template, threshold=0.60, plot_result=False, sav
         return True, (x_center, y_center), ROI, max_val
     else:
         if plot_result:
-            print(f"Oggetto non trovato nel frame. Affidabilità massima: {max_val:.2f} < {threshold}")
+            print(f"Object not found in the frame. Maximum confidence: {max_val:.2f} < {threshold}")
         return False, None, None, max_val
 
 
@@ -261,7 +261,7 @@ def track_droplet_template(img, template, threshold=0.60, plot_result=False, sav
     """
 # ==========================================
 
-def analyze_frame_fourier_complete(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_edge=5.0, w_line=0.0, plot_profile=False, frame_number=None, save_path=None):
+def analyze_frame_fourier_complete(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_edge=5.0, w_line=0.0, plot_profile=False, frame_number=None, save_path=None, pixel_size_um=1.0):
     # 1. Pre-processing
     if img.ndim == 3:
         img_gray = rgb2gray(img)
@@ -315,11 +315,13 @@ def analyze_frame_fourier_complete(img, init_contour, sigma=2, alpha=1.5, beta=1
     c2 = np.sqrt(a2**2 + b2**2)
     c3 = np.sqrt(a3**2 + b3**2)
     c4 = np.sqrt(a4**2 + b4**2)
+
+    a0_um = a0 * pixel_size_um
     
     if plot_profile:
         theta_contour = np.arctan2(Y_contour - y_true, X_contour - x_true) 
         theta_contour = np.mod(theta_contour, 2 * np.pi)
-        r_contour = np.sqrt((X_contour - x_true)**2 + (Y_contour - y_true)**2)
+        r_contour = np.sqrt( ((X_contour - x_true) * pixel_size_um) ** 2 + ((Y_contour - y_true) * pixel_size_um) ** 2)
         
         theta_fit_mod = np.mod(theta_fit, 2 * np.pi)
         
@@ -349,19 +351,33 @@ def analyze_frame_fourier_complete(img, init_contour, sigma=2, alpha=1.5, beta=1
         
         # --- GRAFICO 2: Profilo Radiale ---
         ax2.plot(theta_contour_sorted, r_contour_sorted, color='blue', linestyle='-', marker='.', label='Contorno')
-        ax2.plot(theta_fit_sorted, r_fit_sorted, color='red', linestyle='-', marker='.', label='Fit')
-        ax2.axhline(a0, color='black', linestyle='--', alpha=0.7, label='a_0')
+        ax2.plot(theta_fit_sorted, r_fit_sorted*pixel_size_um, color='red', linestyle='-', marker='.', label='Fit')
+        ax2.axhline(a0_um, color='black', linestyle='--', alpha=0.7, label='a_0')
         ax2.set_xlabel('Angle θ (rad)')
-        ax2.set_ylabel('radius r(θ)')
+        ax2.set_ylabel('radius r(θ) (μm)')
         ax2.set_title('Radial profile r(θ)')
         ax2.grid(True)
         ax2.legend()
-        
+
+
+        max_deformation_um = abs(a0_um - np.max(r_contour_sorted))
+        print(f"Max deformation: {max_deformation_um:.4f} µm")    
+
+        b_ax = (np.max(r_fit_sorted)-a0) + (np.partition(r_fit_sorted, -2)[-2]-a0)  # somma dei due massimi
+        l_ax = (np.min(r_fit_sorted)-a0) + (np.partition(r_fit_sorted, 1)[1]-a0)  # somma dei due minimi
+
+        strain = (b_ax - l_ax) / (b_ax + l_ax)
+        print(f"Strain: {strain:.4f}")    
+
+
         plt.tight_layout()
         if save_path:
-            fig.savefig(save_path, dpi=300, bbox_inches='tight')
+            from pathlib import Path
+
+            save_path = Path(save_path).resolve()
+            fig.savefig(str(save_path), dpi=300, bbox_inches="tight")
         
-        # plt.show()
+        plt.show()
         plt.close(fig)
 
-    return a0, a1, b1, a2, b2, a3, b3, a4, b4, c1, c2, c3, c4, contour
+    return a0, a1, b1, a2, b2, a3, b3, a4, b4, c1, c2, c3, c4, strain, contour
