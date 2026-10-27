@@ -6,6 +6,7 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+from pathlib import Path
 from scipy.optimize import curve_fit
 from skimage.color import rgb2gray
 from skimage.filters import gaussian
@@ -141,9 +142,9 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
         ax1.legend()
         
         # --- GRAFICO 2: Profilo Radiale ---
-        ax2.plot(theta_contour_sorted, r_contour_sorted, color='blue', linestyle='-', marker='.', label='Contorno')
-        ax2.plot(theta_fit_sorted, r_fit_sorted, color='red', linestyle='-', marker='.', label='Fit')
-        ax2.axhline(a0, color='black', linestyle='--', alpha=0.7, label='a_0')
+        ax2.plot(theta_contour_sorted, r_contour_sorted, color='blue', linestyle='-', marker='.', label='Edge')
+        ax2.plot(theta_fit_sorted, r_fit_sorted, color='red', linestyle='-', marker='.', label='Fourier fit')
+        ax2.axhline(a0, color='black', linestyle='--', alpha=0.7, label='Average radius')
         ax2.set_xlabel('Angle θ (rad)')
         ax2.set_ylabel('radius r(θ)')
         ax2.set_title('Radial profile r(θ)')
@@ -152,7 +153,9 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
         
         plt.tight_layout()
         if save_path:
-            fig.savefig(save_path, dpi=300, bbox_inches='tight')
+            save_path = Path(save_path).resolve()
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(str(save_path), dpi=300, bbox_inches='tight')
         
         # Se si vuole solo salvare, plt.show() bloccherebbe il ciclo
         # plt.show() 
@@ -222,7 +225,9 @@ def track_droplet_template(img, template, threshold=0.60, plot_result=False, sav
             cbar.set_label('Confidence Score (0.0 to 1.0)', fontsize=12)
             plt.tight_layout()
             if save_path:
-                fig.savefig(save_path, dpi=300, bbox_inches='tight')
+                save_path = Path(save_path).resolve()
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+                fig.savefig(str(save_path), dpi=300, bbox_inches='tight')
             
             # plt.show() 
             plt.close(fig)
@@ -350,9 +355,9 @@ def analyze_frame_fourier_complete(img, init_contour, sigma=2, alpha=1.5, beta=1
         ax1.legend()
         
         # --- GRAFICO 2: Profilo Radiale ---
-        ax2.plot(theta_contour_sorted, r_contour_sorted, color='blue', linestyle='-', marker='.', label='Contorno')
-        ax2.plot(theta_fit_sorted, r_fit_sorted*pixel_size_um, color='red', linestyle='-', marker='.', label='Fit')
-        ax2.axhline(a0_um, color='black', linestyle='--', alpha=0.7, label='a_0')
+        ax2.plot(theta_contour_sorted, r_contour_sorted, color='blue', linestyle='-', marker='.', label='Edge')
+        ax2.plot(theta_fit_sorted, r_fit_sorted*pixel_size_um, color='red', linestyle='-', marker='.', label='Fourier fit')
+        ax2.axhline(a0_um, color='black', linestyle='--', alpha=0.7, label='Average radius')
         ax2.set_xlabel('Angle θ (rad)')
         ax2.set_ylabel('radius r(θ) (μm)')
         ax2.set_title('Radial profile r(θ)')
