@@ -109,6 +109,8 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
     c2 = np.abs(a2)
     c3 = np.abs(a3)
     c4 = np.abs(a4)
+
+    strain = a2 / a0 
     
     if plot_profile:
         theta_contour = np.arctan2(Y_contour - y_true, X_contour - x_true) 
@@ -124,6 +126,7 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
         sort_fit_indices = np.argsort(theta_fit_mod)
         theta_fit_sorted = theta_fit_mod[sort_fit_indices]
         r_fit_sorted = radius_fit[sort_fit_indices]
+
 
         # Creiamo una figura con 2 grafici affiancati (ax1 e ax2)
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
@@ -151,6 +154,7 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
         ax2.grid(True)
         ax2.legend()
         
+        
         plt.tight_layout()
         if save_path:
             save_path = Path(save_path).resolve()
@@ -161,7 +165,7 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
         # plt.show() 
         plt.close(fig) # Chiude la figura per liberare memoria
 
-    return a0, a2, a3, a4, c1, c2, c3, c4, contour
+    return a0, a2, a3, a4, c1, c2, c3, c4, strain, contour
 
 
 # ==========================================
@@ -174,6 +178,10 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
     - template: Il template da cercare (immagine croppata, in scala di grigi).
     - threshold: Valore minimo di affidabilità per considerare trovato l'oggetto.
     - plot_result: Se True, mostra un plot con il rettangolo trovato e la heatmap.
+    - radius: Semilato in pixel della finestra di ricerca, oppure None per cercare
+      nell'intero frame.
+    - previous_centers: Centri (x, y) dei rilevamenti precedenti; se presenti,
+      la finestra è centrata sulla media degli ultimi cinque.
     
     Ritorna:
     - found (bool): True se l'oggetto è stato trovato con confidenza >= threshold.
@@ -183,7 +191,15 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
     """
 # ==========================================
 
-def track_droplet_template(img, template, threshold=0.60, plot_result=False, save_path=None):
+def track_droplet_template(
+    img,
+    template,
+    threshold=0.60,
+    plot_result=False,
+    save_path=None,
+    radius=None,
+    previous_centers=None,
+):
     # 1. Conversione in scala di grigi
     if img.ndim == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -191,14 +207,37 @@ def track_droplet_template(img, template, threshold=0.60, plot_result=False, sav
         gray = img.copy()
         
     h, w = template.shape[:2]
-    
+
+    x_offset = 0
+    y_offset = 0
+    search_img = gray
+    if radius is not None:
+        if int(radius) != radius or radius <= 0:
+            raise ValueError("radius deve essere un intero positivo, espresso in pixel.")
+        if previous_centers is not None and len(previous_centers) > 0:
+            centers = np.asarray(previous_centers[-5:], dtype=float)
+            if centers.ndim != 2 or centers.shape[1] != 2:
+                raise ValueError("previous_centers deve contenere coppie (x, y).")
+
+            mean_x, mean_y = np.rint(centers.mean(axis=0)).astype(int)
+            x_offset = max(0, mean_x - int(radius))
+            y_offset = max(0, mean_y - int(radius))
+            x_end = min(gray.shape[1], mean_x + int(radius))
+            y_end = min(gray.shape[0], mean_y + int(radius))
+            search_img = gray[y_offset:y_end, x_offset:x_end]
+
+            if search_img.shape[0] < h or search_img.shape[1] < w:
+                raise ValueError(
+                    "La finestra di ricerca è più piccola del template; aumenta radius."
+                )
+
     # 2. Template Matching
-    result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
+    result = cv2.matchTemplate(search_img, template, cv2.TM_CCOEFF_NORMED)
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
     
     # 3. Verifica della threshold
     if max_val >= threshold:
-        top_left = max_loc
+        top_left = (max_loc[0] + x_offset, max_loc[1] + y_offset)
         bottom_right = (top_left[0] + w, top_left[1] + h)
         
         ROI = gray[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]].copy()
