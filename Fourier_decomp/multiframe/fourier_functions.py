@@ -178,10 +178,11 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
     - template: Il template da cercare (immagine croppata, in scala di grigi).
     - threshold: Valore minimo di affidabilità per considerare trovato l'oggetto.
     - plot_result: Se True, mostra un plot con il rettangolo trovato e la heatmap.
-    - radius: Semilato in pixel della finestra di ricerca, oppure None per cercare
-      nell'intero frame.
+    - radius: Altezza in pixel della finestra di ricerca; la larghezza è
+      2 * radius. Se None, cerca nell'intero frame.
     - previous_centers: Centri (x, y) dei rilevamenti precedenti; se presenti,
-      la finestra è centrata sulla media degli ultimi cinque.
+      la finestra parte dalla media x degli ultimi cinque e resta centrata sulla
+      media y.
     
     Ritorna:
     - found (bool): True se l'oggetto è stato trovato con confidenza >= threshold.
@@ -220,16 +221,22 @@ def track_droplet_template(
                 raise ValueError("previous_centers deve contenere coppie (x, y).")
 
             mean_x, mean_y = np.rint(centers.mean(axis=0)).astype(int)
-            x_offset = max(0, mean_x - int(radius))
-            y_offset = max(0, mean_y - int(radius))
-            x_end = min(gray.shape[1], mean_x + int(radius))
-            y_end = min(gray.shape[0], mean_y + int(radius))
-            search_img = gray[y_offset:y_end, x_offset:x_end]
-
-            if search_img.shape[0] < h or search_img.shape[1] < w:
+            window_height = max(int(radius), h)
+            window_width = max(2 * int(radius), w)
+            if window_height > gray.shape[0] or window_width > gray.shape[1]:
                 raise ValueError(
-                    "La finestra di ricerca è più piccola del template; aumenta radius."
+                    "Il template è più grande del frame; impossibile eseguire il template matching."
                 )
+
+            x_offset = np.clip(mean_x, 0, gray.shape[1] - window_width)
+            y_offset = np.clip(
+                mean_y - window_height // 2,
+                0,
+                gray.shape[0] - window_height,
+            )
+            x_end = x_offset + window_width
+            y_end = y_offset + window_height
+            search_img = gray[y_offset:y_end, x_offset:x_end]
 
     # 2. Template Matching
     result = cv2.matchTemplate(search_img, template, cv2.TM_CCOEFF_NORMED)
@@ -429,3 +436,35 @@ def analyze_frame_fourier_complete(img, init_contour, sigma=2, alpha=1.5, beta=1
         plt.close(fig)
 
     return a0, a1, b1, a2, b2, a3, b3, a4, b4, c1, c2, c3, c4, strain, contour
+
+
+def find_radius_outliers(values, threshold=2.5, window_size=15):
+    values = np.asarray(values, dtype=float)
+    outliers = ~np.isfinite(values)
+    if values.size < 3 or window_size < 3 or window_size % 2 == 0:
+        return outliers
+
+    radius = window_size // 2
+    baseline = np.full(values.shape, np.nan)
+    for index in range(values.size):
+        start = max(0, index - radius)
+        stop = min(values.size, index + radius + 1)
+        local_values = values[start:stop]
+        local_values = local_values[np.isfinite(local_values)]
+        if local_values.size:
+            baseline[index] = np.median(local_values)
+
+    residuals = values - baseline
+    finite = np.isfinite(residuals)
+    if not finite.any():
+        return outliers
+    median = np.median(residuals[finite])
+    deviations = residuals - median
+    mad = np.median(np.abs(deviations[finite]))
+    tolerance = threshold * 1.4826 * mad
+    if mad == 0:
+        scale = max(1.0, np.nanmax(np.abs(values)))
+        tolerance = np.finfo(float).eps * scale * 10
+    outliers |= finite & (np.abs(deviations) > tolerance)
+    return outliers
+
