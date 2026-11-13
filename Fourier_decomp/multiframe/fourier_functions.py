@@ -138,20 +138,22 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
         # --- GRAFICO 1: Immagine e Contorni ---
         # (nota: dentro la funzione l'immagine si chiama img_gray, non ROI)
         ax1.imshow(img_gray, cmap=plt.cm.gray)
-        ax1.plot(init_contour[:, 1], init_contour[:, 0], '--r', lw=1, label="Starting point")
-        ax1.plot(contour[:, 1], contour[:, 0], '-b', lw=2, label="Active contour")
+        ax1.plot(init_contour[:, 1], init_contour[:, 0], '--', color='crimson', lw=1, label="Starting point")
+        ax1.plot(contour[:, 1], contour[:, 0], '-', color='blue', lw=2, label="Active contour")
         ax1.set_xticks([])
         ax1.set_yticks([]) # Nasconde i numeri sugli assi
-        ax1.legend()
+        #ax1.legend()
+        ax1.spines["top"].set_visible(False)
+        ax1.spines["right"].set_visible(False)
         
         # --- GRAFICO 2: Profilo Radiale ---
-        ax2.plot(theta_contour_sorted, r_contour_sorted, color='blue', linestyle='-', marker='.', label='Edge')
-        ax2.plot(theta_fit_sorted, r_fit_sorted, color='red', linestyle='-', marker='.', label='Fourier fit')
+        ax2.plot(theta_contour_sorted, r_contour_sorted, color="#0C348B",linestyle='-', marker='.', label='Edge')
+        ax2.plot(theta_fit_sorted, r_fit_sorted, color="#c50e0e", linestyle='-', marker='.', label='Fourier fit')
         ax2.axhline(a0, color='black', linestyle='--', alpha=0.7, label='Average radius')
         ax2.set_xlabel('Angle θ (rad)')
         ax2.set_ylabel('radius r(θ)')
         ax2.set_title('Radial profile r(θ)')
-        ax2.grid(True)
+        #ax2.grid(True)
         ax2.legend()
         
         
@@ -162,7 +164,7 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
             fig.savefig(str(save_path), dpi=300, bbox_inches='tight')
         
         # Se si vuole solo salvare, plt.show() bloccherebbe il ciclo
-        # plt.show() 
+        #plt.show() 
         plt.close(fig) # Chiude la figura per liberare memoria
 
     return a0, a2, a3, a4, c1, c2, c3, c4, strain, contour
@@ -228,7 +230,11 @@ def track_droplet_template(
                     "Il template è più grande del frame; impossibile eseguire il template matching."
                 )
 
-            x_offset = np.clip(mean_x, 0, gray.shape[1] - window_width)
+            x_offset = np.clip(
+                mean_x - int(radius),
+                0,
+                gray.shape[1] - window_width,
+            )
             y_offset = np.clip(
                 mean_y - window_height // 2,
                 0,
@@ -407,8 +413,11 @@ def analyze_frame_fourier_complete(img, init_contour, sigma=2, alpha=1.5, beta=1
         ax2.set_xlabel('Angle θ (rad)')
         ax2.set_ylabel('radius r(θ) (μm)')
         ax2.set_title('Radial profile r(θ)')
-        ax2.grid(True)
+        #ax2.grid(True)
         ax2.legend()
+        ax = plt.gca() 
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
 
 
         max_deformation_um = abs(a0_um - np.max(r_contour_sorted))
@@ -467,4 +476,3 @@ def find_radius_outliers(values, threshold=2.5, window_size=15):
         tolerance = np.finfo(float).eps * scale * 10
     outliers |= finite & (np.abs(deviations) > tolerance)
     return outliers
-
