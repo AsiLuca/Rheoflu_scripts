@@ -142,9 +142,7 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
         ax1.plot(contour[:, 1], contour[:, 0], '-', color='blue', lw=2, label="Active contour")
         ax1.set_xticks([])
         ax1.set_yticks([]) # Nasconde i numeri sugli assi
-        #ax1.legend()
-        ax1.spines["top"].set_visible(False)
-        ax1.spines["right"].set_visible(False)
+        #ax1.legend() #mettere fuori dalla immagine!
         
         # --- GRAFICO 2: Profilo Radiale ---
         ax2.plot(theta_contour_sorted, r_contour_sorted, color="#0C348B",linestyle='-', marker='.', label='Edge')
@@ -164,7 +162,7 @@ def analyze_frame_fourier(img, init_contour, sigma=2, alpha=1.5, beta=10.0, w_ed
             fig.savefig(str(save_path), dpi=300, bbox_inches='tight')
         
         # Se si vuole solo salvare, plt.show() bloccherebbe il ciclo
-        #plt.show() 
+        # plt.show() 
         plt.close(fig) # Chiude la figura per liberare memoria
 
     return a0, a2, a3, a4, c1, c2, c3, c4, strain, contour
